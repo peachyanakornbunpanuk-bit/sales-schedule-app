@@ -1,5 +1,3 @@
-const sqlite3 = require('sqlite3').verbose();
-const { open } = require('sqlite');
 const path = require('path');
 const { createClient } = require('@libsql/client');
 
@@ -27,6 +25,8 @@ async function getDbConnection() {
     };
     console.log("Connected to Turso Cloud Database");
   } else {
+    const sqlite3 = require('sqlite3').verbose();
+    const { open } = require('sqlite');
     db = await open({
       filename: path.join(__dirname, 'database.sqlite'),
       driver: sqlite3.Database
