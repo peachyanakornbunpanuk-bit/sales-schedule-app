@@ -8,8 +8,8 @@ const Employees = () => {
   const { showToast } = useToast();
   
   // Group users by role so they are all visible
-  const salesStaff = users.filter(u => u.role === 'sales' || u.role === 'Sales Employee');
-  const adminStaff = users.filter(u => u.role === 'admin' || u.role === 'sales_manager' || u.role === 'Admin');
+  const salesStaff = users.filter(u => u.role === 'sales');
+  const adminStaff = users.filter(u => u.role === 'admin' || u.role === 'sales_manager');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newEmployee, setNewEmployee] = useState({ name: '', email: '', role: 'Sales Employee', phone: '' });

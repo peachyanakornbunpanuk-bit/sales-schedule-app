@@ -7,6 +7,7 @@ export interface User {
   email: string;
   role: UserRole;
   lineUserId?: string;
+  phone?: string;
 }
 export interface Location {
   id: string;
