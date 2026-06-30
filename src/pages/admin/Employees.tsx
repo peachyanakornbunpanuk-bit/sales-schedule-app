@@ -22,7 +22,8 @@ const Employees = () => {
     
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:3001/api/users`, {
+      const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
+      const res = await fetch(`${API_BASE}/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify(newEmployee)

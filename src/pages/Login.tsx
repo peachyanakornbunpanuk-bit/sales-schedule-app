@@ -19,7 +19,8 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const endpoint = isRegistering ? 'http://localhost:3001/api/auth/register' : 'http://localhost:3001/api/auth/login';
+      const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
+      const endpoint = isRegistering ? `${API_BASE}/auth/register` : `${API_BASE}/auth/login`;
       const body = isRegistering 
         ? JSON.stringify({ email, password, name, role })
         : JSON.stringify({ email, password });
