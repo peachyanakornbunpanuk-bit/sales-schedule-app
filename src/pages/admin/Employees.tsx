@@ -12,7 +12,7 @@ const Employees = () => {
   const adminStaff = users.filter(u => u.role === 'admin' || u.role === 'sales_manager');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newEmployee, setNewEmployee] = useState({ name: '', email: '', role: 'Sales Employee', phone: '' });
+  const [newEmployee, setNewEmployee] = useState({ name: '', email: '', role: 'sales', phone: '' });
 
   const [loading, setLoading] = useState(false);
 
