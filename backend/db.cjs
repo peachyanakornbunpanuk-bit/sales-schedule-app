@@ -25,6 +25,11 @@ async function getDbConnection() {
     };
     console.log("Connected to Turso Cloud Database");
   } else {
+    if (process.env.RENDER) {
+      console.error("FATAL ERROR: You are running on Render but forgot to add TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in the Render Environment Variables tab!");
+      process.exit(1);
+    }
+    
     const sqlite3 = require('sqlite3').verbose();
     const { open } = require('sqlite');
     db = await open({
