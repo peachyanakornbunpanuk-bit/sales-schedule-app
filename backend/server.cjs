@@ -1,5 +1,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -14,6 +16,14 @@ const lineConfig = {
 const lineClient = new line.messagingApi.MessagingApiClient(lineConfig);
 
 const app = express();
+app.use(helmet());
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 login requests per windowMs
+  message: { error: 'Too many login attempts from this IP, please try again after 15 minutes' }
+});
+
 const allowedOrigins = [
   'https://sales-schedule-app.onrender.com',
   'http://localhost:5173',
@@ -35,7 +45,8 @@ const path = require('path');
 app.use(express.static(path.join(__dirname, '../dist')));
 
 if (!process.env.JWT_SECRET) {
-  throw new Error("JWT_SECRET is required");
+  console.error("JWT_SECRET is required");
+  process.exit(1);
 }
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -84,10 +95,45 @@ const authenticateAdmin = (req, res, next) => {
 async function startServer() {
   const db = await getDbConnection();
 
-  // --- Auth Routes ---
+  // --- Password Reset Routes ---
+  app.post('/api/forgot-password', async (req, res) => {
+    const { email } = req.body;
+    const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+    if (!user) return res.status(200).json({ message: 'If an account with that email exists, a reset link has been sent.' });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 3600000).toISOString(); // 1 hour from now
+    
+    await db.run('INSERT INTO password_resets (token, userId, expiresAt) VALUES (?, ?, ?)', [token, user.id, expiresAt]);
+    
+    // Simulate sending email
+    console.log(`[EMAIL MOCK] Password reset requested for ${email}. Link: http://localhost:5173/reset-password?token=${token}`);
+    
+    res.status(200).json({ message: 'If an account with that email exists, a reset link has been sent.' });
+  });
+
+  app.post('/api/reset-password', async (req, res) => {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) return res.status(400).json({ error: 'Token and new password required' });
+    
+    if (!isValidPassword(newPassword)) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long and contain uppercase, lowercase, and numbers' });
+    }
+
+    const resetRecord = await db.get('SELECT * FROM password_resets WHERE token = ? AND expiresAt > ?', [token, new Date().toISOString()]);
+    if (!resetRecord) return res.status(400).json({ error: 'Invalid or expired reset token' });
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hashedPassword, resetRecord.userId]);
+    await db.run('DELETE FROM password_resets WHERE token = ?', [token]);
+    
+    res.status(200).json({ message: 'Password reset successfully' });
+  });
+
+  // --- User Management Routes ---
   // Registration is disabled for public. Admins create accounts via /api/users
 
-  app.post('/api/auth/login', async (req, res) => {
+  app.post('/api/auth/login', loginLimiter, async (req, res) => {
     try {
       const { email, password } = req.body;
       const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
@@ -258,6 +304,12 @@ async function startServer() {
     if (!isValidDate(date)) return res.status(400).json({ error: 'Invalid date format (YYYY-MM-DD)' });
     if (!isValidTime(startTime) || !isValidTime(endTime)) return res.status(400).json({ error: 'Invalid time format (HH:MM)' });
     
+    // Prevent Retroactive Scheduling
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); // YYYY-MM-DD
+    if (date < todayStr) {
+      return res.status(400).json({ error: 'Cannot retroactively schedule shifts in the past.' });
+    }
+    
     // Shift Conflict Prevention
     const existingSchedules = await db.all("SELECT startTime, endTime FROM schedules WHERE userId = ? AND date = ? AND status != 'soft_deleted'", [userId, date]);
     for (const shift of existingSchedules) {
@@ -266,17 +318,40 @@ async function startServer() {
       }
     }
 
-    const id = crypto.randomUUID();
     const finalStatus = req.body.status || 'published';
+    const recurrence = req.body.recurrence || 'none';
+    
+    // Handle Recurrence
+    const newSchedules = [];
+    const baseDate = new Date(date);
+    const numShifts = recurrence === 'weekly' ? 4 : recurrence === 'monthly' ? 2 : 1;
+    
+    for (let i = 0; i < numShifts; i++) {
+      let shiftDate = new Date(baseDate);
+      if (recurrence === 'weekly') {
+        shiftDate.setDate(shiftDate.getDate() + (i * 7));
+      } else if (recurrence === 'monthly') {
+        shiftDate.setMonth(shiftDate.getMonth() + i);
+      }
+      
+      const shiftDateStr = shiftDate.toISOString().split('T')[0];
+      const shiftId = crypto.randomUUID();
+      
+      await db.run(
+        'INSERT INTO schedules (id, userId, locationId, date, startTime, endTime, shiftType, jobDescription, notes, status, recurrence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [shiftId, userId, locationId, shiftDateStr, startTime, endTime, shiftType, jobDescription, notes, finalStatus, recurrence]
+      );
+      
+      newSchedules.push({ id: shiftId, date: shiftDateStr });
+    }
+
+    const auditId = crypto.randomUUID();
     await db.run(
-      'INSERT INTO schedules (id, userId, locationId, date, startTime, endTime, shiftType, jobDescription, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, userId, locationId, date, startTime, endTime, shiftType, jobDescription, notes, finalStatus]
+      'INSERT INTO audit_logs (id, adminId, action, targetId, details, timestamp, ipAddress) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [auditId, req.user.id, 'CREATE_SCHEDULE', newSchedules[0].id, `Created ${numShifts} schedule(s) for user ${userId}`, new Date().toISOString(), req.ip]
     );
 
-    await db.run(
-      'INSERT INTO audit_logs (id, adminId, action, targetId, details, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
-      [crypto.randomUUID(), req.user.id, 'CREATE_SCHEDULE', id, `Created ${finalStatus} shift for user ${userId} on ${date}`, new Date().toISOString()]
-    );
+    res.status(201).json({ message: 'Schedule(s) created', ids: newSchedules.map(s => s.id) });
 
     // Send LINE Notification
     const user = await db.get('SELECT name, lineUserId FROM users WHERE id = ?', [userId]);
@@ -299,8 +374,6 @@ async function startServer() {
     } else {
       console.log(`Simulation: Would send LINE message to ${user ? user.name : userId} but no lineUserId found.`);
     }
-
-    res.json({ id, ...req.body });
   });
 
   app.put('/api/schedules/:id', authenticateAdmin, async (req, res) => {
@@ -325,24 +398,45 @@ async function startServer() {
       values.push(id);
       await db.run(`UPDATE schedules SET ${updates.join(', ')} WHERE id = ?`, values);
 
+      const auditId = crypto.randomUUID();
       await db.run(
-        'INSERT INTO audit_logs (id, adminId, action, targetId, details, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
-        [crypto.randomUUID(), req.user.id, 'UPDATE_SCHEDULE', id, `Updated schedule ${id}`, new Date().toISOString()]
+        'INSERT INTO audit_logs (id, adminId, action, targetId, details, timestamp, ipAddress) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [auditId, req.user.id, 'UPDATE_SCHEDULE', id, `Updated schedule ${id}`, new Date().toISOString(), req.ip]
       );
     }
     res.json({ success: true });
   });
 
   app.delete('/api/schedules/:id', authenticateAdmin, async (req, res) => {
-    // Soft delete
-    await db.run("UPDATE schedules SET status = 'soft_deleted' WHERE id = ?", [req.params.id]);
+    const { id } = req.params;
+    await db.run("UPDATE schedules SET status = 'soft_deleted' WHERE id = ?", [id]);
     
+    const auditId = crypto.randomUUID();
     await db.run(
-      'INSERT INTO audit_logs (id, adminId, action, targetId, details, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
-      [crypto.randomUUID(), req.user.id, 'DELETE_SCHEDULE', req.params.id, `Soft deleted schedule ${req.params.id}`, new Date().toISOString()]
+      'INSERT INTO audit_logs (id, adminId, action, targetId, details, timestamp, ipAddress) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [auditId, req.user.id, 'DELETE_SCHEDULE', id, `Soft deleted schedule ${id}`, new Date().toISOString(), req.ip]
     );
-    
+
     res.json({ success: true });
+  });
+
+  // --- Activity Timeline Endpoints ---
+  app.post('/api/schedules/:id/acknowledge', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    await db.run('UPDATE schedules SET status = ? WHERE id = ? AND userId = ?', ['acknowledged', id, req.user.id]);
+    res.status(200).json({ message: 'Schedule acknowledged' });
+  });
+
+  app.post('/api/schedules/:id/checkin', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    await db.run('UPDATE schedules SET status = ? WHERE id = ? AND userId = ?', ['checked_in', id, req.user.id]);
+    res.status(200).json({ message: 'Checked in successfully' });
+  });
+
+  app.post('/api/schedules/:id/complete', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    await db.run('UPDATE schedules SET shiftType = ? WHERE id = ? AND userId = ?', ['Completed', id, req.user.id]);
+    res.status(200).json({ message: 'Task completed' });
   });
 
   app.get('/api/notifications', authenticateToken, async (req, res) => {
@@ -489,6 +583,11 @@ async function startServer() {
 
   // Catch-all route to serve the React app for any unknown paths (supports React Router)
   app.use((req, res) => {
+    res.sendFile(path.join(__dirname, '../dist/index.html'));
+  });
+
+  // SPA Fallback for React Router
+  app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../dist/index.html'));
   });
 

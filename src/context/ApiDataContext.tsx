@@ -25,6 +25,7 @@ export interface Schedule {
   jobDescription?: string;
   notes?: string;
   status?: string;
+  recurrence?: string;
 }
 export interface NotificationLog {
   id: string;
@@ -48,8 +49,9 @@ export interface AuditLog {
   adminId: string;
   action: string;
   targetId: string;
-  details: string;
+  details?: string;
   timestamp: string;
+  ipAddress?: string;
 }
 export interface InAppNotification {
   id: string;

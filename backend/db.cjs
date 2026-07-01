@@ -108,6 +108,13 @@ async function getDbConnection() {
       createdAt TEXT NOT NULL,
       FOREIGN KEY (userId) REFERENCES users(id)
     );
+
+    CREATE TABLE IF NOT EXISTS password_resets (
+      token TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      expiresAt TEXT NOT NULL,
+      FOREIGN KEY (userId) REFERENCES users(id)
+    );
   `);
 
   try {
@@ -134,6 +141,14 @@ async function getDbConnection() {
 
   // Update existing schedules to published if status is null
   await db.exec(`UPDATE schedules SET status = 'published' WHERE status IS NULL;`);
+
+  try {
+    await db.exec(`ALTER TABLE audit_logs ADD COLUMN ipAddress TEXT;`);
+  } catch (e) {}
+
+  try {
+    await db.exec(`ALTER TABLE schedules ADD COLUMN recurrence TEXT DEFAULT 'none';`);
+  } catch (e) {}
 
   return db;
 }

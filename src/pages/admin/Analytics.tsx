@@ -2,11 +2,22 @@ import React from 'react';
 import { useMockData } from '../../context/ApiDataContext';
 import { BarChart3, Activity, Clock, Users, CalendarDays, CheckCircle2 } from 'lucide-react';
 
+import { Skeleton, SkeletonCard } from '../../components/Skeleton';
+
 const Analytics = () => {
   const { kpiData, auditLogs, users } = useMockData();
 
   if (!kpiData) {
-    return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Loading Analytics...</div>;
+    return (
+      <div style={{ padding: '2rem' }}>
+        <Skeleton width="200px" height="30px" style={{ marginBottom: '2rem' }} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      </div>
+    );
   }
 
   const totalShifts = kpiData.totalPublishedShifts + kpiData.totalDraftShifts;
@@ -58,7 +69,9 @@ const Analytics = () => {
                 <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Timestamp</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Admin</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Action</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Target ID</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Details</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>IP Address</th>
               </tr>
             </thead>
             <tbody>
@@ -79,7 +92,13 @@ const Analytics = () => {
                         {log.action}
                       </span>
                     </td>
-                    <td style={{ padding: '1rem', color: 'var(--text-muted)' }}>{log.details}</td>
+                    <td style={{ padding: '1rem' }}>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{log.targetId}</div>
+                    </td>
+                    <td style={{ padding: '1rem' }}>{log.details}</td>
+                    <td style={{ padding: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                      {log.ipAddress || 'N/A'}
+                    </td>
                   </tr>
                 );
               })}

@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMockData } from '../../context/ApiDataContext';
 import { DndContext, useDraggable, useDroppable, DragEndEvent } from '@dnd-kit/core';
 import { useToast } from '../../context/ToastContext';
 import Modal from '../../components/Modal';
-import { GripVertical } from 'lucide-react';
+import { GripVertical, Download, Calendar as CalendarIcon } from 'lucide-react';
 
 const DraggableEmployee = ({ employee }: { employee: any }) => {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
@@ -71,6 +71,57 @@ const CalendarMonth = () => {
   
   const [viewShift, setViewShift] = useState<any>(null);
   const [calendarLocationFilter, setCalendarLocationFilter] = useState<string>('all');
+  const [recurrence, setRecurrence] = useState('none');
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        setPendingShift({ userId: salesStaff.length ? salesStaff[0].id : '', date: new Date().toISOString().split('T')[0] });
+        if (locations.length > 0) setLocationId(locations[0].id);
+        setJobDescription('');
+        setNotes('');
+        setRecurrence('none');
+        setIsModalOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [salesStaff, locations]);
+
+  const exportCSV = () => {
+    const headers = ['Date', 'Start Time', 'End Time', 'Employee', 'Location', 'Shift Type', 'Status'];
+    const rows = schedules.map(s => [
+      s.date, s.startTime, s.endTime, users.find(u => u.id === s.userId)?.name || s.userId,
+      locations.find(l => l.id === s.locationId)?.name || s.locationId, s.shiftType, s.status || 'published'
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `schedules_${currentDate.toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportICS = () => {
+    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//SalesSchedule//App//EN\n";
+    schedules.forEach(s => {
+      const u = users.find(u => u.id === s.userId);
+      const startDt = s.date.replace(/-/g, '') + 'T' + s.startTime.replace(/:/g, '') + '00';
+      const endDt = s.date.replace(/-/g, '') + 'T' + s.endTime.replace(/:/g, '') + '00';
+      icsContent += `BEGIN:VEVENT\nSUMMARY:${u?.name} - ${s.shiftType}\nDTSTART:${startDt}\nDTEND:${endDt}\nDESCRIPTION:${s.jobDescription || ''}\nEND:VEVENT\n`;
+    });
+    icsContent += "END:VCALENDAR";
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `schedules_${currentDate.toISOString().split('T')[0]}.ics`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
@@ -138,6 +189,7 @@ const CalendarMonth = () => {
       shiftType,
       jobDescription,
       notes,
+      recurrence,
       status: (e.nativeEvent as SubmitEvent).submitter?.getAttribute('name') === 'draft' ? 'draft' : 'published'
     });
     showToast('Shift added successfully', 'success');
@@ -167,8 +219,14 @@ const CalendarMonth = () => {
     <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <h1 style={{ margin: 0 }}>Master Calendar</h1>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <select 
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button className="btn btn-outline" onClick={exportCSV} title="Export CSV" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Download size={16} /> CSV
+          </button>
+          <button className="btn btn-outline" onClick={exportICS} title="Sync to Calendar" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <CalendarIcon size={16} /> ICS
+          </button>
+          <select  
             className="input-field" 
             value={calendarLocationFilter} 
             onChange={(e) => setCalendarLocationFilter(e.target.value)}
@@ -303,6 +361,15 @@ const CalendarMonth = () => {
           <div className="form-group">
             <label className="form-label">Additional Notes</label>
             <textarea className="input-field" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Please arrive 15 minutes early." style={{ minHeight: '80px', resize: 'vertical' }} />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Recurrence</label>
+            <select className="input-field" value={recurrence} onChange={e => setRecurrence(e.target.value)}>
+              <option value="none">Does not repeat</option>
+              <option value="weekly">Weekly (4 weeks)</option>
+              <option value="monthly">Monthly (2 months)</option>
+            </select>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem' }}>
