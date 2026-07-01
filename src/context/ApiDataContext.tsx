@@ -76,7 +76,7 @@ interface ApiDataContextType {
 
 const ApiDataContext = createContext<ApiDataContextType | undefined>(undefined);
 
-const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export const ApiDataProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);

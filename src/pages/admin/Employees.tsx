@@ -23,7 +23,7 @@ const Employees = () => {
     
     setLoading(true);
     try {
-      const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
+      const API_BASE = import.meta.env.VITE_API_URL || '/api';
       const res = await fetch(`${API_BASE}/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
@@ -39,13 +39,13 @@ const Employees = () => {
   };
 
   const handleResetPassword = async (id: string, name: string) => {
-    const newPassword = window.prompt(`Enter new temporary password for ${name} (minimum 6 characters):`);
+    const newPassword = window.prompt(`Enter new temporary password for ${name} (Min 8 chars, uppercase, lowercase, numbers):`);
     if (!newPassword) return;
-    if (newPassword.length < 6) {
-      return showToast('Password must be at least 6 characters', 'error');
+    if (newPassword.length < 8) {
+      return showToast('Password must be at least 8 characters', 'error');
     }
     try {
-      const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
+      const API_BASE = import.meta.env.VITE_API_URL || '/api';
       const res = await fetch(`${API_BASE}/users/${id}/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },

@@ -21,7 +21,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
+      const API_BASE = import.meta.env.VITE_API_URL || '/api';
       const endpoint = `${API_BASE}/auth/login`;
       const body = JSON.stringify({ email, password });
 

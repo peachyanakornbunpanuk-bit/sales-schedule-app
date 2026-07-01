@@ -14,14 +14,30 @@ const lineConfig = {
 const lineClient = new line.messagingApi.MessagingApiClient(lineConfig);
 
 const app = express();
-app.use(cors());
+const allowedOrigins = [
+  'https://sales-schedule-app.onrender.com',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
+}));
 app.use(express.json());
 
 // Serve static files from the React frontend build
 const path = require('path');
 app.use(express.static(path.join(__dirname, '../dist')));
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-development';
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET is required");
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Middleware to protect routes
 const authenticateToken = (req, res, next) => {
@@ -35,6 +51,20 @@ const authenticateToken = (req, res, next) => {
     req.user = user;
     next();
   });
+};
+
+// Validation Helpers
+const isValidEmail = (email) => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
+const isValidPassword = (password) => {
+  if (!password) return false;
+  if (password.length < 8) return false;
+  if (!/[A-Z]/.test(password)) return false;
+  if (!/[a-z]/.test(password)) return false;
+  if (!/[0-9]/.test(password)) return false;
+  return true;
 };
 
 // Middleware for Admin only routes
@@ -70,7 +100,8 @@ async function startServer() {
       const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
       res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      console.error(error);
+      res.status(500).json({ error: 'Internal Server Error' });
     }
   });
 
@@ -81,7 +112,8 @@ async function startServer() {
       if (!user) return res.sendStatus(404);
       res.json(user);
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      console.error(error);
+      res.status(500).json({ error: 'Internal Server Error' });
     }
   });
 
@@ -92,15 +124,16 @@ async function startServer() {
         return res.status(403).json({ error: 'Unauthorized' });
       }
       const { newPassword } = req.body;
-      if (!newPassword || newPassword.length < 6) {
-        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      if (!isValidPassword(newPassword)) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters long and contain uppercase, lowercase, and numbers' });
       }
       
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hashedPassword, req.params.id]);
       res.json({ success: true });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      console.error(error);
+      res.status(500).json({ error: 'Internal Server Error' });
     }
   });
 
@@ -134,6 +167,9 @@ async function startServer() {
       values.push(phone);
     }
     if (password) {
+      if (!isValidPassword(password)) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters long and contain uppercase, lowercase, and numbers' });
+      }
       const hashedPassword = await bcrypt.hash(password, 10);
       updates.push('password_hash = ?');
       values.push(hashedPassword);
@@ -159,7 +195,17 @@ async function startServer() {
   app.post('/api/users', authenticateAdmin, async (req, res) => {
     try {
       const { name, email, role, password, phone } = req.body;
-      const hashedPassword = await bcrypt.hash(password || '123456', 10);
+      
+      if (!isValidEmail(email)) {
+        return res.status(400).json({ error: 'Invalid email format' });
+      }
+      
+      const passToSet = password || 'Temp1234';
+      if (!isValidPassword(passToSet)) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters long and contain uppercase, lowercase, and numbers' });
+      }
+      
+      const hashedPassword = await bcrypt.hash(passToSet, 10);
       const id = crypto.randomUUID();
 
       await db.run(
@@ -168,7 +214,8 @@ async function startServer() {
       );
       res.json({ id, name, email, role, phone });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      console.error(error);
+      res.status(500).json({ error: 'Internal Server Error' });
     }
   });
 
