@@ -259,7 +259,7 @@ async function startServer() {
     if (!isValidTime(startTime) || !isValidTime(endTime)) return res.status(400).json({ error: 'Invalid time format (HH:MM)' });
     
     // Shift Conflict Prevention
-    const existingSchedules = await db.all('SELECT startTime, endTime FROM schedules WHERE userId = ? AND date = ?', [userId, date]);
+    const existingSchedules = await db.all("SELECT startTime, endTime FROM schedules WHERE userId = ? AND date = ? AND status != 'soft_deleted'", [userId, date]);
     for (const shift of existingSchedules) {
       if (startTime < shift.endTime && endTime > shift.startTime) {
         return res.status(400).json({ error: 'Conflict: This employee is already scheduled during this overlapping time on this date.' });
