@@ -67,6 +67,10 @@ const isValidPassword = (password) => {
   return true;
 };
 
+const isValidDate = (date) => /^\d{4}-\d{2}-\d{2}$/.test(date);
+const isValidTime = (time) => /^([01]\d|2[0-3]):([0-5]\d)$/.test(time);
+const isValidPhone = (phone) => /^\d{9,15}$/.test(phone); // Standard international digit length
+
 // Middleware for Admin only routes
 const authenticateAdmin = (req, res, next) => {
   authenticateToken(req, res, () => {
@@ -166,6 +170,9 @@ async function startServer() {
       values.push(email);
     }
     if (phone !== undefined) {
+      if (phone !== '' && !isValidPhone(phone)) {
+        return res.status(400).json({ error: 'Invalid phone format (numbers only)' });
+      }
       updates.push('phone = ?');
       values.push(phone);
     }
@@ -202,6 +209,9 @@ async function startServer() {
       if (!isValidEmail(email)) {
         return res.status(400).json({ error: 'Invalid email format' });
       }
+      if (phone && !isValidPhone(phone)) {
+        return res.status(400).json({ error: 'Invalid phone format (numbers only)' });
+      }
       
       const passToSet = password || 'Temp1234';
       if (!isValidPassword(passToSet)) {
@@ -218,6 +228,9 @@ async function startServer() {
       res.json({ id, name, email, role, phone });
     } catch (error) {
       console.error(error);
+      if (error.message && error.message.includes('UNIQUE constraint failed')) {
+        return res.status(400).json({ error: 'Duplicate Employee: Email is already in use.' });
+      }
       res.status(500).json({ error: 'Internal Server Error' });
     }
   });
@@ -241,6 +254,9 @@ async function startServer() {
 
   app.post('/api/schedules', authenticateAdmin, async (req, res) => {
     const { userId, locationId, date, startTime, endTime, shiftType, jobDescription, notes } = req.body;
+    
+    if (!isValidDate(date)) return res.status(400).json({ error: 'Invalid date format (YYYY-MM-DD)' });
+    if (!isValidTime(startTime) || !isValidTime(endTime)) return res.status(400).json({ error: 'Invalid time format (HH:MM)' });
     
     // Shift Conflict Prevention
     const existingSchedules = await db.all('SELECT startTime, endTime FROM schedules WHERE userId = ? AND date = ?', [userId, date]);
@@ -284,6 +300,11 @@ async function startServer() {
   app.put('/api/schedules/:id', authenticateAdmin, async (req, res) => {
     const { id } = req.params;
     const { date, startTime, endTime, shiftType, jobDescription, notes } = req.body; // Add fields as needed
+    
+    if (date && !isValidDate(date)) return res.status(400).json({ error: 'Invalid date format' });
+    if (startTime && !isValidTime(startTime)) return res.status(400).json({ error: 'Invalid start time format' });
+    if (endTime && !isValidTime(endTime)) return res.status(400).json({ error: 'Invalid end time format' });
+    
     // Simple update builder for non-null fields
     const updates = [];
     const values = [];
