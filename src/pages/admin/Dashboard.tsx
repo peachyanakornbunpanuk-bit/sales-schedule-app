@@ -8,6 +8,7 @@ const Dashboard = () => {
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [shiftToDelete, setShiftToDelete] = useState<string | null>(null);
+  const [locationFilter, setLocationFilter] = useState<string>('all');
   const { showToast } = useToast();
 
   const confirmDelete = () => {
@@ -19,8 +20,11 @@ const Dashboard = () => {
     setShiftToDelete(null);
   };
 
-  // Filter schedules for the selected date
-  const daySchedules = schedules.filter(s => s.date === currentDate).sort((a, b) => a.startTime.localeCompare(b.startTime));
+  // Filter schedules for the selected date and location
+  const daySchedules = schedules
+    .filter(s => s.date === currentDate)
+    .filter(s => locationFilter === 'all' || s.locationId === locationFilter)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
   
   // Pending Requests
   const { requests, updateRequestStatus } = useMockData();
@@ -30,7 +34,18 @@ const Dashboard = () => {
     <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h1 style={{ margin: 0 }}>Daily Roster</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <select 
+            className="input-field" 
+            value={locationFilter} 
+            onChange={(e) => setLocationFilter(e.target.value)}
+            style={{ width: 'auto', minWidth: '150px' }}
+          >
+            <option value="all">All Locations</option>
+            {locations.map(loc => (
+              <option key={loc.id} value={loc.id}>{loc.name}</option>
+            ))}
+          </select>
           <input 
             type="date" 
             className="input-field" 

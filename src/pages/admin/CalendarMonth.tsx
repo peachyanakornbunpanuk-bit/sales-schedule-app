@@ -32,8 +32,14 @@ const DroppableDay = ({ dateObj, isCurrentMonth, schedules, users, onAddClick, o
       <div>
         {schedules.map(s => {
           const u = users.find(u => u.id === s.userId);
+          let bgColor = 'var(--primary-color)';
+          if (s.shiftType === 'Morning') bgColor = '#f59e0b';
+          else if (s.shiftType === 'Evening') bgColor = '#8b5cf6';
+          else if (s.shiftType === 'Completed') bgColor = 'var(--success)';
+          else if (s.shiftType === 'Cancelled') bgColor = 'var(--danger)';
+          
           return (
-            <div key={s.id} onClick={(e) => { e.stopPropagation(); onShiftClick(s); }} style={{ background: 'var(--primary-color)', color: 'white', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', marginBottom: '0.25rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }} title={`${u?.name} (${s.startTime} - ${s.endTime})`}>
+            <div key={s.id} onClick={(e) => { e.stopPropagation(); onShiftClick(s); }} style={{ background: bgColor, color: 'white', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', marginBottom: '0.25rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }} title={`${u?.name} (${s.startTime} - ${s.endTime})`}>
               {u?.name}
             </div>
           );
@@ -61,6 +67,7 @@ const CalendarMonth = () => {
   const [notes, setNotes] = useState('');
   
   const [viewShift, setViewShift] = useState<any>(null);
+  const [calendarLocationFilter, setCalendarLocationFilter] = useState<string>('all');
 
   const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
@@ -136,15 +143,43 @@ const CalendarMonth = () => {
 
   return (
     <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h1 style={{ margin: 0 }}>Monthly Schedule</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <select className="input-field" style={{ width: 'auto', padding: '0.5rem' }} value={month} onChange={e => setCurrentDate(new Date(year, parseInt(e.target.value), 1))}>
-            {Array.from({length: 12}).map((_, i) => <option key={i} value={i}>{new Date(year, i, 1).toLocaleDateString('en-US', {month: 'long'})}</option>)}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <h1 style={{ margin: 0 }}>Master Calendar</h1>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <select 
+            className="input-field" 
+            value={calendarLocationFilter} 
+            onChange={(e) => setCalendarLocationFilter(e.target.value)}
+            style={{ width: 'auto', minWidth: '150px' }}
+          >
+            <option value="all">All Locations</option>
+            {locations.map(loc => (
+              <option key={loc.id} value={loc.id}>{loc.name}</option>
+            ))}
           </select>
-          <select className="input-field" style={{ width: 'auto', padding: '0.5rem' }} value={year} onChange={e => setCurrentDate(new Date(parseInt(e.target.value), month, 1))}>
-            {Array.from({length: 10}).map((_, i) => <option key={i} value={new Date().getFullYear() - 5 + i}>{new Date().getFullYear() - 5 + i}</option>)}
-          </select>
+          <button className="btn btn-outline" onClick={() => setCurrentDate(new Date(year, month - 1, 1))}>Prev</button>
+          <span style={{ fontWeight: 600, minWidth: '120px', textAlign: 'center' }}>
+            {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+          </span>
+          <button className="btn btn-outline" onClick={() => setCurrentDate(new Date(year, month + 1, 1))}>Next</button>
+        </div>
+      </div>
+      
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap', fontSize: '0.85rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'var(--primary-color)' }}></div> Full Day
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: '#f59e0b' }}></div> Morning
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: '#8b5cf6' }}></div> Evening
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'var(--success)' }}></div> Completed
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'var(--danger)' }}></div> Cancelled
         </div>
       </div>
 
@@ -167,7 +202,11 @@ const CalendarMonth = () => {
               ))}
               {days.map((d, i) => {
                 const dateStr = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
-                const daySchedules = schedules.filter(s => s.date === dateStr);
+                const daySchedules = schedules.filter(s => {
+                  if (s.date !== dateStr) return false;
+                  if (calendarLocationFilter !== 'all' && s.locationId !== calendarLocationFilter) return false;
+                  return true;
+                });
                 return (
                   <DroppableDay 
                     key={i} 

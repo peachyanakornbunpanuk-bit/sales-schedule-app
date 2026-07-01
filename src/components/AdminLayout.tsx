@@ -1,12 +1,14 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Users, MapPin, Calendar, LogOut, Menu, X, Bell, Settings, ClipboardList, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, MapPin, Calendar, LogOut, Menu, X, Bell, Settings, ClipboardList, ChevronLeft, ChevronRight, Moon, Sun } from 'lucide-react';
 import { useMockData } from '../context/ApiDataContext';
 import { useState } from 'react';
+import { useDarkMode } from '../hooks/useDarkMode';
 
 const AdminLayout = () => {
   const { logout, currentUser } = useMockData();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
+  const { isDarkMode, toggle: toggleDarkMode } = useDarkMode();
 
   return (
     <div className="layout-container">
@@ -17,15 +19,6 @@ const AdminLayout = () => {
       <div className={`glass-panel sidebar ${isSidebarOpen ? 'open' : ''} ${isDesktopCollapsed ? 'collapsed' : ''}`}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <h2 className="nav-text" style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Schedule</h2>
-          <button 
-            className="hamburger-btn" 
-            style={{ 
-              padding: '0.5rem', 
-              color: 'var(--text-main)',
-              background: 'rgba(0,0,0,0.04)',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
               justifyContent: 'center',
               transition: 'all 0.2s ease'
             }} 
@@ -208,9 +201,12 @@ const AdminLayout = () => {
 
       {/* Main Content */}
       <div className="main-content">
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', paddingRight: '1rem' }}>
           <button className="hamburger-btn hide-on-desktop" onClick={() => setIsSidebarOpen(true)}>
             <Menu size={24} />
+          </button>
+          <button className="icon-btn" onClick={toggleDarkMode} title="Toggle Dark Mode">
+            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto' }}>

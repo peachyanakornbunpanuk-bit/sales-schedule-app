@@ -1,12 +1,14 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Calendar, LogOut, Menu, Settings, ClipboardList, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, LogOut, Menu, Settings, ClipboardList, ChevronLeft, ChevronRight, Moon, Sun } from 'lucide-react';
 import { useMockData } from '../context/ApiDataContext';
 import { useState } from 'react';
+import { useDarkMode } from '../hooks/useDarkMode';
 
 const SalesLayout = () => {
   const { logout, currentUser } = useMockData();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
+  const { isDarkMode, toggle: toggleDarkMode } = useDarkMode();
 
   return (
     <div className="layout-container">
@@ -112,9 +114,12 @@ const SalesLayout = () => {
 
       {/* Main Content */}
       <div className="main-content">
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', paddingRight: '1rem' }}>
           <button className="hamburger-btn hide-on-desktop" onClick={() => setIsSidebarOpen(true)}>
             <Menu size={24} />
+          </button>
+          <button className="icon-btn" onClick={toggleDarkMode} title="Toggle Dark Mode">
+            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto' }}>

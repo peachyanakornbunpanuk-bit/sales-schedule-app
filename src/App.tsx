@@ -17,7 +17,7 @@ import SalesSchedule from './pages/sales/Schedule';
 import EmployeeCalendar from './pages/sales/EmployeeCalendar';
 import ProfileSettings from './pages/shared/ProfileSettings';
 
-import { Loader2 } from 'lucide-react';
+import { SkeletonCard, Skeleton } from './components/Skeleton';
 
 const ProtectedRoute = ({ children, roleRequired }: { children: React.ReactNode, roleRequired: 'admin' | 'sales' }) => {
   const { currentUser } = useMockData();
@@ -38,9 +38,13 @@ function App() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: '1rem', color: 'var(--primary-color)' }}>
-        <Loader2 className="animate-spin" size={48} />
-        <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>Loading ScheduleMaster...</h2>
+      <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', height: '100vh', gap: '2rem' }}>
+        <Skeleton width="40%" height="40px" />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
       </div>
     );
   }

@@ -11,6 +11,21 @@
   --text-muted: #64748b;
   --danger: #ef4444;
   --success: #10b981;
+  --skeleton-base: #e2e8f0;
+  --skeleton-highlight: #f8fafc;
+}
+
+[data-theme="dark"] {
+  --primary-color: #818cf8;
+  --primary-hover: #6366f1;
+  --bg-gradient-start: #0f172a;
+  --bg-gradient-end: #1e293b;
+  --surface: rgba(30, 41, 59, 0.7);
+  --surface-border: rgba(51, 65, 85, 0.5);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --skeleton-base: #334155;
+  --skeleton-highlight: #475569;
 }
 
 body {
@@ -22,6 +37,26 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* Skeleton Loading Animation */
+.skeleton-pulse {
+  background: var(--skeleton-base);
+  background: linear-gradient(
+    110deg,
+    var(--skeleton-base) 8%,
+    var(--skeleton-highlight) 18%,
+    var(--skeleton-base) 33%
+  );
+  background-size: 200% 100%;
+  animation: 1.5s skeleton-shimmer linear infinite;
+}
+
+@keyframes skeleton-shimmer {
+  to {
+    background-position-x: -200%;
+  }
 }
 
 /* Glassmorphism utilities */
