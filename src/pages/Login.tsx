@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useMockData as useApiData } from '../context/ApiDataContext';
 import { UserRole } from '../context/ApiDataContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 const Login = () => {
   const { fetchData } = useApiData();
@@ -12,6 +13,8 @@ const Login = () => {
   const [role, setRole] = useState<UserRole>('sales');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const { showToast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +62,7 @@ const Login = () => {
       }
       
       setError(friendlyMessage);
-      alert(friendlyMessage);
+      showToast(friendlyMessage, 'error');
       setLoading(false);
     }
   };
@@ -109,15 +112,37 @@ const Login = () => {
 
           <div className="form-group">
             <label className="form-label">Password</label>
-            <input 
-              type="password" 
-              className="input-field" 
-              placeholder="••••••••" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required 
-              minLength={6}
-            />
+            <div style={{ position: 'relative' }}>
+              <input 
+                type={showPassword ? 'text' : 'password'}
+                className="input-field" 
+                placeholder="••••••••" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required 
+                minLength={6}
+                style={{ paddingRight: '2.5rem' }}
+              />
+              <button 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '0.75rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           {isRegistering && (

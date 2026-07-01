@@ -21,7 +21,7 @@ app.use(express.json());
 const path = require('path');
 app.use(express.static(path.join(__dirname, '../dist')));
 
-const JWT_SECRET = 'super-secret-key-for-development'; // In production, use env var
+const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-development';
 
 // Middleware to protect routes
 const authenticateToken = (req, res, next) => {
@@ -89,6 +89,25 @@ async function startServer() {
       const user = await db.get('SELECT id, name, email, role FROM users WHERE id = ?', [req.user.id]);
       if (!user) return res.sendStatus(404);
       res.json(user);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Reset employee password
+  app.post('/api/users/:id/reset-password', authenticateToken, async (req, res) => {
+    try {
+      if (req.user.role !== 'admin' && req.user.role !== 'sales_manager') {
+        return res.status(403).json({ error: 'Unauthorized' });
+      }
+      const { newPassword } = req.body;
+      if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      }
+      
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hashedPassword, req.params.id]);
+      res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -181,6 +200,15 @@ async function startServer() {
 
   app.post('/api/schedules', authenticateToken, async (req, res) => {
     const { userId, locationId, date, startTime, endTime, shiftType, jobDescription, notes } = req.body;
+    
+    // Shift Conflict Prevention
+    const existingSchedules = await db.all('SELECT startTime, endTime FROM schedules WHERE userId = ? AND date = ?', [userId, date]);
+    for (const shift of existingSchedules) {
+      if (startTime < shift.endTime && endTime > shift.startTime) {
+        return res.status(400).json({ error: 'Conflict: This employee is already scheduled during this overlapping time on this date.' });
+      }
+    }
+
     const id = crypto.randomUUID();
     await db.run(
       'INSERT INTO schedules (id, userId, locationId, date, startTime, endTime, shiftType, jobDescription, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -192,11 +220,13 @@ async function startServer() {
     const location = await db.get('SELECT name FROM locations WHERE id = ?', [locationId]);
     if (user && user.lineUserId && lineConfig.channelAccessToken) {
       try {
+        // Enforce Thailand Timezone (UTC+7) for formatting the notification
+        const bkkDate = new Date(date).toLocaleDateString('en-GB', { timeZone: 'Asia/Bangkok', day: '2-digit', month: 'short', year: 'numeric' });
         await lineClient.pushMessage({
           to: user.lineUserId,
           messages: [{
             type: 'text',
-            text: `Hello ${user.name}, you have a new shift assigned at ${location ? location.name : 'Unknown Location'}.\nDate: ${date}\nTime: ${startTime} - ${endTime}\nType: ${shiftType}`
+            text: `Hello ${user.name}, you have a new shift assigned at ${location ? location.name : 'Unknown Location'}.\nDate: ${bkkDate}\nTime: ${startTime} - ${endTime}\nType: ${shiftType}`
           }]
         });
         console.log('LINE notification sent to', user.name);
@@ -313,11 +343,12 @@ async function startServer() {
         if (event.type === 'message' && event.message.type === 'text') {
           const userText = event.message.text.trim();
           const userId = event.source.userId;
+          const cleanedPhone = userText.replace(/\D/g, ''); // Strip all non-digits
 
-          // Check if this text matches any user's email or phone
+          // Check if this text matches any user's email or strictly formatted phone
           const matchedUser = await db.get(
-            'SELECT * FROM users WHERE email = ? OR phone = ? COLLATE NOCASE',
-            [userText, userText]
+            'SELECT * FROM users WHERE email = ? COLLATE NOCASE OR (phone = ? AND phone != "")',
+            [userText, cleanedPhone]
           );
 
           if (matchedUser) {

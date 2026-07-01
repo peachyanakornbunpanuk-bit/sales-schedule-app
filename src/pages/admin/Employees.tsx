@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useMockData } from '../../context/ApiDataContext';
 import Modal from '../../components/Modal';
 import { useToast } from '../../context/ToastContext';
+import { Key } from 'lucide-react';
 
 const Employees = () => {
   const { users, addUser } = useMockData();
@@ -31,9 +32,32 @@ const Employees = () => {
       if (!res.ok) throw new Error('Failed to create employee');
       window.location.reload();
     } catch (err: any) {
-      alert(`Failed to create account: ${err.message}`);
+      showToast(`Failed to create account: ${err.message}`, 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (id: string, name: string) => {
+    const newPassword = window.prompt(`Enter new temporary password for ${name} (minimum 6 characters):`);
+    if (!newPassword) return;
+    if (newPassword.length < 6) {
+      return showToast('Password must be at least 6 characters', 'error');
+    }
+    try {
+      const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
+      const res = await fetch(`${API_BASE}/users/${id}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ newPassword })
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to reset password');
+      }
+      showToast(`Password reset successful for ${name}`, 'success');
+    } catch (err: any) {
+      showToast(err.message, 'error');
     }
   };
 
@@ -56,9 +80,14 @@ const Employees = () => {
               Sales
             </span>
             {emp.phone && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>📞 {emp.phone}</p>}
-            <p style={{ fontSize: '0.85rem', marginTop: '0.25rem', color: emp.lineUserId ? 'var(--success)' : 'var(--text-muted)' }}>
-              {emp.lineUserId ? '✅ LINE Linked' : '❌ LINE Not Linked'}
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+              <p style={{ fontSize: '0.85rem', color: emp.lineUserId ? 'var(--success)' : 'var(--text-muted)', margin: 0 }}>
+                {emp.lineUserId ? '✅ LINE Linked' : '❌ LINE Not Linked'}
+              </p>
+              <button onClick={() => handleResetPassword(emp.id, emp.name)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8rem' }} title="Reset Password">
+                <Key size={14} /> Reset
+              </button>
+            </div>
           </div>
         ))}
         {salesStaff.length === 0 && (
@@ -76,9 +105,14 @@ const Employees = () => {
               Admin
             </span>
             {emp.phone && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>📞 {emp.phone}</p>}
-            <p style={{ fontSize: '0.85rem', marginTop: '0.25rem', color: emp.lineUserId ? 'var(--success)' : 'var(--text-muted)' }}>
-              {emp.lineUserId ? '✅ LINE Linked' : '❌ LINE Not Linked'}
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+              <p style={{ fontSize: '0.85rem', color: emp.lineUserId ? 'var(--success)' : 'var(--text-muted)', margin: 0 }}>
+                {emp.lineUserId ? '✅ LINE Linked' : '❌ LINE Not Linked'}
+              </p>
+              <button onClick={() => handleResetPassword(emp.id, emp.name)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8rem' }} title="Reset Password">
+                <Key size={14} /> Reset
+              </button>
+            </div>
           </div>
         ))}
       </div>

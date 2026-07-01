@@ -30,7 +30,8 @@ const ProfileSettings = () => {
     if (!currentUser) return;
     
     try {
-      const updates: any = { name, email, phone };
+      const cleanedPhone = phone.replace(/\D/g, '');
+      const updates: any = { name, email, phone: cleanedPhone };
       if (password) {
         updates.password = password;
       }
