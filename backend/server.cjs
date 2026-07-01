@@ -583,8 +583,12 @@ async function startServer() {
 
   // Catch-all route to serve the React app for any unknown paths (supports React Router)
   // SPA Fallback for React Router
-  app.get('/(.*)', (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api')) {
+      res.sendFile(path.join(__dirname, '../dist/index.html'));
+    } else {
+      next();
+    }
   });
 
   const PORT = process.env.PORT || 3001;
