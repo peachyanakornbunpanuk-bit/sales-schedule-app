@@ -3,6 +3,7 @@ import { Calendar, LogOut, Menu, Settings, ClipboardList, ChevronLeft, ChevronRi
 import { useMockData } from '../context/ApiDataContext';
 import { useState } from 'react';
 import { useDarkMode } from '../hooks/useDarkMode';
+import NotificationBell from './NotificationBell';
 
 const SalesLayout = () => {
   const { logout, currentUser } = useMockData();
@@ -118,9 +119,12 @@ const SalesLayout = () => {
           <button className="hamburger-btn hide-on-desktop" onClick={() => setIsSidebarOpen(true)}>
             <Menu size={24} />
           </button>
-          <button className="icon-btn" onClick={toggleDarkMode} title="Toggle Dark Mode">
-            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <NotificationBell />
+            <button className="icon-btn" onClick={toggleDarkMode} title="Toggle Dark Mode">
+              {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+          </div>
         </div>
         <div style={{ flex: 1, overflowY: 'auto' }}>
           <Outlet />

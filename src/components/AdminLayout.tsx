@@ -1,8 +1,9 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Users, MapPin, Calendar, LogOut, Menu, X, Bell, Settings, ClipboardList, ChevronLeft, ChevronRight, Moon, Sun } from 'lucide-react';
+import { Users, MapPin, Calendar, LogOut, Menu, X, Bell, Settings, ClipboardList, ChevronLeft, ChevronRight, Moon, Sun, BarChart3 } from 'lucide-react';
 import { useMockData } from '../context/ApiDataContext';
 import { useState } from 'react';
 import { useDarkMode } from '../hooks/useDarkMode';
+import NotificationBell from './NotificationBell';
 
 const AdminLayout = () => {
   const { logout, currentUser } = useMockData();
@@ -19,6 +20,15 @@ const AdminLayout = () => {
       <div className={`glass-panel sidebar ${isSidebarOpen ? 'open' : ''} ${isDesktopCollapsed ? 'collapsed' : ''}`}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <h2 className="nav-text" style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Schedule</h2>
+          <button 
+            className="hamburger-btn" 
+            style={{ 
+              padding: '0.5rem', 
+              color: 'var(--text-main)',
+              background: 'rgba(0,0,0,0.04)',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'center',
               transition: 'all 0.2s ease'
             }} 
@@ -130,8 +140,8 @@ const AdminLayout = () => {
           <div className="nav-text" style={{ padding: '1rem 0.5rem 0.5rem 1rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>System</div>
           
           <NavLink 
-            to="/admin/notifications" 
-            title="Notifications"
+            to="/admin/analytics" 
+            title="KPI Dashboard"
             onClick={() => setIsSidebarOpen(false)}
             style={({ isActive }) => ({
               display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', 
@@ -142,7 +152,7 @@ const AdminLayout = () => {
               transition: 'all 0.2s'
             })}
           >
-            <Bell size={20} style={{ minWidth: '20px' }} /> <span className="nav-text">Notifications</span>
+            <BarChart3 size={20} style={{ minWidth: '20px' }} /> <span className="nav-text">KPI Dashboard</span>
           </NavLink>
           
           <NavLink 
@@ -205,9 +215,12 @@ const AdminLayout = () => {
           <button className="hamburger-btn hide-on-desktop" onClick={() => setIsSidebarOpen(true)}>
             <Menu size={24} />
           </button>
-          <button className="icon-btn" onClick={toggleDarkMode} title="Toggle Dark Mode">
-            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <NotificationBell />
+            <button className="icon-btn" onClick={toggleDarkMode} title="Toggle Dark Mode">
+              {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+          </div>
         </div>
         <div style={{ flex: 1, overflowY: 'auto' }}>
           <Outlet />

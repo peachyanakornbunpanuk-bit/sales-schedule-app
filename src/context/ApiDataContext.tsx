@@ -24,6 +24,7 @@ export interface Schedule {
   shiftType: string;
   jobDescription?: string;
   notes?: string;
+  status?: string;
 }
 export interface NotificationLog {
   id: string;
@@ -41,6 +42,27 @@ export interface RequestLog {
   status: 'pending' | 'approved' | 'rejected';
   details: string;
   createdAt: string;
+}
+export interface AuditLog {
+  id: string;
+  adminId: string;
+  action: string;
+  targetId: string;
+  details: string;
+  timestamp: string;
+}
+export interface InAppNotification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  isRead: number;
+  createdAt: string;
+}
+export interface KpiData {
+  totalPublishedShifts: number;
+  totalDraftShifts: number;
+  userCoverage: { userId: string, shiftCount: number }[];
 }
 
 export interface NotificationSettings {
@@ -72,6 +94,10 @@ interface ApiDataContextType {
   notificationSettings: NotificationSettings;
   updateNotificationSettings: (settings: Partial<NotificationSettings>) => Promise<void>;
   fetchData: () => Promise<void>;
+  auditLogs: AuditLog[];
+  inAppNotifications: InAppNotification[];
+  markNotificationAsRead: (id: string) => Promise<void>;
+  kpiData: KpiData | null;
 }
 
 const ApiDataContext = createContext<ApiDataContextType | undefined>(undefined);
@@ -87,6 +113,9 @@ export const ApiDataProvider = ({ children }: { children: ReactNode }) => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [notifications, setNotifications] = useState<NotificationLog[]>([]);
   const [requests, setRequests] = useState<RequestLog[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [inAppNotifications, setInAppNotifications] = useState<InAppNotification[]>([]);
+  const [kpiData, setKpiData] = useState<KpiData | null>(null);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     enableEmail: true, enableLine: true, deliveryMode: 'Immediate',
     reminder1Day: true, reminder1Hour: false, reminder15Min: false
@@ -103,12 +132,15 @@ export const ApiDataProvider = ({ children }: { children: ReactNode }) => {
   const fetchData = useCallback(async () => {
     if (!localStorage.getItem('token')) return;
     try {
-      const [uRes, lRes, sRes, nRes, reqRes] = await Promise.all([
+      const [uRes, lRes, sRes, nRes, reqRes, auditRes, inAppRes, kpiRes] = await Promise.all([
         fetch(`${API_BASE}/users`, { headers: getHeaders() }),
         fetch(`${API_BASE}/locations`, { headers: getHeaders() }),
         fetch(`${API_BASE}/schedules`, { headers: getHeaders() }),
         fetch(`${API_BASE}/notifications`, { headers: getHeaders() }),
-        fetch(`${API_BASE}/requests`, { headers: getHeaders() })
+        fetch(`${API_BASE}/requests`, { headers: getHeaders() }),
+        fetch(`${API_BASE}/audit-logs`, { headers: getHeaders() }),
+        fetch(`${API_BASE}/notifications/in-app`, { headers: getHeaders() }),
+        fetch(`${API_BASE}/analytics/kpi`, { headers: getHeaders() })
       ]);
 
       if (uRes.ok) setUsers(await uRes.json());
@@ -116,6 +148,9 @@ export const ApiDataProvider = ({ children }: { children: ReactNode }) => {
       if (sRes.ok) setSchedules(await sRes.json());
       if (nRes.ok) setNotifications(await nRes.json());
       if (reqRes.ok) setRequests(await reqRes.json());
+      if (auditRes.ok) setAuditLogs(await auditRes.json());
+      if (inAppRes.ok) setInAppNotifications(await inAppRes.json());
+      if (kpiRes.ok) setKpiData(await kpiRes.json());
     } catch (error) {
       console.error("Error fetching data:", error);
     }
@@ -240,14 +275,24 @@ export const ApiDataProvider = ({ children }: { children: ReactNode }) => {
     await fetchData();
   };
 
+  const markNotificationAsRead = async (id: string) => {
+    try {
+      await fetch(`${API_BASE}/notifications/in-app/${id}/read`, {
+        method: 'PUT',
+        headers: getHeaders()
+      });
+      fetchData();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return (
-    <ApiDataContext.Provider value={{ 
-      currentUser, loading, logout, 
-      users, addUser, updateUserProfile, 
-      locations, addLocation, 
-      schedules, addSchedule, updateSchedule, removeSchedule,
-      notifications, requests, addRequest, updateRequestStatus, notificationSettings, updateNotificationSettings,
-      fetchData
+    <ApiDataContext.Provider value={{
+      currentUser, loading, logout, users, addUser, updateUserProfile, locations, addLocation,
+      schedules, addSchedule, updateSchedule, removeSchedule, notifications, requests, addRequest, updateRequestStatus,
+      notificationSettings, updateNotificationSettings, fetchData,
+      auditLogs, inAppNotifications, markNotificationAsRead, kpiData
     }}>
       {children}
     </ApiDataContext.Provider>

@@ -9,6 +9,7 @@ import Locations from './pages/admin/Locations';
 import LocationSchedule from './pages/admin/LocationSchedule';
 import CalendarMonth from './pages/admin/CalendarMonth';
 import MasterSchedule from './pages/admin/MasterSchedule';
+import Analytics from './pages/admin/Analytics';
 import NotificationHistory from './pages/admin/NotificationHistory';
 import NotificationSettings from './pages/admin/NotificationSettings';
 import Reports from './pages/admin/Reports';
@@ -66,6 +67,7 @@ function App() {
           <Route path="dashboard" element={<MasterSchedule />} />
           <Route path="daily-roster" element={<AdminDashboard />} />
           <Route path="calendar" element={<CalendarMonth />} />
+          <Route path="analytics" element={<Analytics />} />
           <Route path="employees" element={<Employees />} />
           <Route path="locations" element={<Locations />} />
           <Route path="locations/:id" element={<LocationSchedule />} />

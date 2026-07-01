@@ -86,6 +86,25 @@ async function getDbConnection() {
       type TEXT NOT NULL,
       status TEXT NOT NULL,
       details TEXT,
+      FOREIGN KEY (userId) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      adminId TEXT NOT NULL,
+      action TEXT NOT NULL,
+      targetId TEXT NOT NULL,
+      details TEXT,
+      timestamp TEXT NOT NULL,
+      FOREIGN KEY (adminId) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS in_app_notifications (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      isRead INTEGER DEFAULT 0,
       createdAt TEXT NOT NULL,
       FOREIGN KEY (userId) REFERENCES users(id)
     );
@@ -108,6 +127,13 @@ async function getDbConnection() {
   try {
     await db.exec(`ALTER TABLE requests ADD COLUMN targetUserId TEXT;`);
   } catch (e) {}
+
+  try {
+    await db.exec(`ALTER TABLE schedules ADD COLUMN status TEXT DEFAULT 'published';`);
+  } catch (e) {}
+
+  // Update existing schedules to published if status is null
+  await db.exec(`UPDATE schedules SET status = 'published' WHERE status IS NULL;`);
 
   return db;
 }

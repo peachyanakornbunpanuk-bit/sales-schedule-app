@@ -38,9 +38,12 @@ const DroppableDay = ({ dateObj, isCurrentMonth, schedules, users, onAddClick, o
           else if (s.shiftType === 'Completed') bgColor = 'var(--success)';
           else if (s.shiftType === 'Cancelled') bgColor = 'var(--danger)';
           
+          const isDraft = s.status === 'draft';
+          const draftStyles = isDraft ? { border: '1px dashed white', background: 'transparent', color: bgColor } : {};
+
           return (
-            <div key={s.id} onClick={(e) => { e.stopPropagation(); onShiftClick(s); }} style={{ background: bgColor, color: 'white', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', marginBottom: '0.25rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }} title={`${u?.name} (${s.startTime} - ${s.endTime})`}>
-              {u?.name}
+            <div key={s.id} onClick={(e) => { e.stopPropagation(); onShiftClick(s); }} style={{ background: bgColor, color: 'white', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', marginBottom: '0.25rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', ...draftStyles }} title={`${u?.name} (${s.startTime} - ${s.endTime}) ${isDraft ? '[DRAFT]' : ''}`}>
+              {u?.name} {isDraft && '*'}
             </div>
           );
         })}
@@ -50,7 +53,7 @@ const DroppableDay = ({ dateObj, isCurrentMonth, schedules, users, onAddClick, o
 };
 
 const CalendarMonth = () => {
-  const { users, locations, schedules, addSchedule } = useMockData();
+  const { users, locations, schedules, addSchedule, updateSchedule, removeSchedule } = useMockData();
   const { showToast } = useToast();
   const salesStaff = users.filter(u => u.role === 'sales');
   
@@ -134,11 +137,30 @@ const CalendarMonth = () => {
       endTime,
       shiftType,
       jobDescription,
-      notes
+      notes,
+      status: (e.nativeEvent as SubmitEvent).submitter?.getAttribute('name') === 'draft' ? 'draft' : 'published'
     });
     showToast('Shift added successfully', 'success');
     setIsModalOpen(false);
     setPendingShift(null);
+  };
+
+  const handleDeleteShift = (id: string) => {
+    removeSchedule(id);
+    setViewShift(null);
+    showToast('Shift deleted.', 'success', {
+      label: 'Undo',
+      onClick: () => {
+        updateSchedule(id, { status: 'published' });
+        showToast('Shift restored.', 'success');
+      }
+    });
+  };
+
+  const handlePublishDraft = (id: string) => {
+    updateSchedule(id, { status: 'published' });
+    setViewShift(null);
+    showToast('Draft published successfully.', 'success');
   };
 
   return (
@@ -180,6 +202,9 @@ const CalendarMonth = () => {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'var(--danger)' }}></div> Cancelled
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ width: '12px', height: '12px', borderRadius: '2px', border: '1px dashed var(--primary-color)' }}></div> Draft
         </div>
       </div>
 
@@ -280,9 +305,12 @@ const CalendarMonth = () => {
             <textarea className="input-field" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Please arrive 15 minutes early." style={{ minHeight: '80px', resize: 'vertical' }} />
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1.5rem' }}>
-            <button type="button" className="btn btn-outline" onClick={() => setIsModalOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary">Confirm Shift</button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem' }}>
+            <button type="submit" name="draft" className="btn btn-outline" style={{ borderStyle: 'dashed' }}>Save as Draft</button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button type="button" className="btn btn-outline" onClick={() => setIsModalOpen(false)}>Cancel</button>
+              <button type="submit" name="publish" className="btn btn-primary">Publish Shift</button>
+            </div>
           </div>
         </form>
       </Modal>
@@ -316,8 +344,16 @@ const CalendarMonth = () => {
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Additional Notes</div>
               <div style={{ fontWeight: 500 }}>{viewShift.notes || 'None'}</div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
-              <button className="btn btn-primary" onClick={() => setViewShift(null)}>Close</button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
+              <button className="btn btn-outline" style={{ color: 'var(--danger)', borderColor: 'rgba(239,68,68,0.2)' }} onClick={() => handleDeleteShift(viewShift.id)}>
+                Delete Shift
+              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button className="btn btn-outline" onClick={() => setViewShift(null)}>Close</button>
+                {viewShift.status === 'draft' && (
+                  <button className="btn btn-primary" onClick={() => handlePublishDraft(viewShift.id)}>Publish Draft</button>
+                )}
+              </div>
             </div>
           </div>
         )}

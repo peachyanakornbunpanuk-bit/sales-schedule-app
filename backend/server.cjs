@@ -248,7 +248,7 @@ async function startServer() {
   });
 
   app.get('/api/schedules', authenticateToken, async (req, res) => {
-    const schedules = await db.all('SELECT * FROM schedules');
+    const schedules = await db.all("SELECT * FROM schedules WHERE status != 'soft_deleted'");
     res.json(schedules);
   });
 
@@ -267,9 +267,15 @@ async function startServer() {
     }
 
     const id = crypto.randomUUID();
+    const finalStatus = req.body.status || 'published';
     await db.run(
-      'INSERT INTO schedules (id, userId, locationId, date, startTime, endTime, shiftType, jobDescription, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, userId, locationId, date, startTime, endTime, shiftType, jobDescription, notes]
+      'INSERT INTO schedules (id, userId, locationId, date, startTime, endTime, shiftType, jobDescription, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, userId, locationId, date, startTime, endTime, shiftType, jobDescription, notes, finalStatus]
+    );
+
+    await db.run(
+      'INSERT INTO audit_logs (id, adminId, action, targetId, details, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
+      [crypto.randomUUID(), req.user.id, 'CREATE_SCHEDULE', id, `Created ${finalStatus} shift for user ${userId} on ${date}`, new Date().toISOString()]
     );
 
     // Send LINE Notification
@@ -318,18 +324,58 @@ async function startServer() {
     if (updates.length > 0) {
       values.push(id);
       await db.run(`UPDATE schedules SET ${updates.join(', ')} WHERE id = ?`, values);
+
+      await db.run(
+        'INSERT INTO audit_logs (id, adminId, action, targetId, details, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
+        [crypto.randomUUID(), req.user.id, 'UPDATE_SCHEDULE', id, `Updated schedule ${id}`, new Date().toISOString()]
+      );
     }
     res.json({ success: true });
   });
 
   app.delete('/api/schedules/:id', authenticateAdmin, async (req, res) => {
-    await db.run('DELETE FROM schedules WHERE id = ?', [req.params.id]);
+    // Soft delete
+    await db.run("UPDATE schedules SET status = 'soft_deleted' WHERE id = ?", [req.params.id]);
+    
+    await db.run(
+      'INSERT INTO audit_logs (id, adminId, action, targetId, details, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
+      [crypto.randomUUID(), req.user.id, 'DELETE_SCHEDULE', req.params.id, `Soft deleted schedule ${req.params.id}`, new Date().toISOString()]
+    );
+    
     res.json({ success: true });
   });
 
   app.get('/api/notifications', authenticateToken, async (req, res) => {
     const notifs = await db.all('SELECT * FROM notifications ORDER BY timestamp DESC');
     res.json(notifs);
+  });
+
+  // --- Phase 3 APIs ---
+  app.get('/api/audit-logs', authenticateAdmin, async (req, res) => {
+    const logs = await db.all('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 100');
+    res.json(logs);
+  });
+
+  app.get('/api/notifications/in-app', authenticateToken, async (req, res) => {
+    const notifs = await db.all('SELECT * FROM in_app_notifications WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [req.user.id]);
+    res.json(notifs);
+  });
+
+  app.put('/api/notifications/in-app/:id/read', authenticateToken, async (req, res) => {
+    await db.run('UPDATE in_app_notifications SET isRead = 1 WHERE id = ? AND userId = ?', [req.params.id, req.user.id]);
+    res.json({ success: true });
+  });
+
+  app.get('/api/analytics/kpi', authenticateAdmin, async (req, res) => {
+    const totalPublished = await db.get("SELECT COUNT(*) as count FROM schedules WHERE status = 'published'");
+    const totalDrafts = await db.get("SELECT COUNT(*) as count FROM schedules WHERE status = 'draft'");
+    const userCoverage = await db.all("SELECT userId, COUNT(*) as shiftCount FROM schedules WHERE status = 'published' GROUP BY userId");
+    
+    res.json({
+      totalPublishedShifts: totalPublished.count,
+      totalDraftShifts: totalDrafts.count,
+      userCoverage
+    });
   });
 
   // --- Requests API (Time-Off / Swaps) ---
