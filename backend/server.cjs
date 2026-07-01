@@ -159,10 +159,6 @@ async function startServer() {
   app.post('/api/users', authenticateAdmin, async (req, res) => {
     try {
       const { name, email, role, password, phone } = req.body;
-      if (req.user.role !== 'admin' && req.user.role !== 'sales_manager') {
-        return res.status(403).json({ error: 'Unauthorized: Only admins can create accounts' });
-      }
-      const { name, email, role, password, phone } = req.body;
       const hashedPassword = await bcrypt.hash(password || '123456', 10);
       const id = crypto.randomUUID();
 
