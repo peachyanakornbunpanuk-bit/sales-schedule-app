@@ -37,30 +37,21 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Middleware for Admin only routes
+const authenticateAdmin = (req, res, next) => {
+  authenticateToken(req, res, () => {
+    if (req.user.role !== 'admin' && req.user.role !== 'sales_manager') {
+      return res.status(403).json({ error: 'Unauthorized: Admin access required' });
+    }
+    next();
+  });
+};
+
 async function startServer() {
   const db = await getDbConnection();
 
   // --- Auth Routes ---
-  app.post('/api/auth/register', async (req, res) => {
-    try {
-      const { email, password, name, role } = req.body;
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const id = crypto.randomUUID();
-
-      await db.run(
-        'INSERT INTO users (id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
-        [id, name, email, hashedPassword, role]
-      );
-      
-      const token = jwt.sign({ id, email, role }, JWT_SECRET, { expiresIn: '24h' });
-      res.json({ token, user: { id, name, email, role } });
-    } catch (error) {
-      if (error.message.includes('UNIQUE constraint failed')) {
-        return res.status(400).json({ error: 'auth/email-already-in-use' });
-      }
-      res.status(500).json({ error: error.message });
-    }
-  });
+  // Registration is disabled for public. Admins create accounts via /api/users
 
   app.post('/api/auth/login', async (req, res) => {
     try {
@@ -165,8 +156,12 @@ async function startServer() {
   });
 
   // Admin adding an employee (creates auth account too)
-  app.post('/api/users', authenticateToken, async (req, res) => {
+  app.post('/api/users', authenticateAdmin, async (req, res) => {
     try {
+      const { name, email, role, password, phone } = req.body;
+      if (req.user.role !== 'admin' && req.user.role !== 'sales_manager') {
+        return res.status(403).json({ error: 'Unauthorized: Only admins can create accounts' });
+      }
       const { name, email, role, password, phone } = req.body;
       const hashedPassword = await bcrypt.hash(password || '123456', 10);
       const id = crypto.randomUUID();
@@ -186,7 +181,7 @@ async function startServer() {
     res.json(locations);
   });
 
-  app.post('/api/locations', authenticateToken, async (req, res) => {
+  app.post('/api/locations', authenticateAdmin, async (req, res) => {
     const { name, address } = req.body;
     const id = crypto.randomUUID();
     await db.run('INSERT INTO locations (id, name, address) VALUES (?, ?, ?)', [id, name, address]);
@@ -198,7 +193,7 @@ async function startServer() {
     res.json(schedules);
   });
 
-  app.post('/api/schedules', authenticateToken, async (req, res) => {
+  app.post('/api/schedules', authenticateAdmin, async (req, res) => {
     const { userId, locationId, date, startTime, endTime, shiftType, jobDescription, notes } = req.body;
     
     // Shift Conflict Prevention
@@ -240,7 +235,7 @@ async function startServer() {
     res.json({ id, ...req.body });
   });
 
-  app.put('/api/schedules/:id', authenticateToken, async (req, res) => {
+  app.put('/api/schedules/:id', authenticateAdmin, async (req, res) => {
     const { id } = req.params;
     const { date, startTime, endTime, shiftType, jobDescription, notes } = req.body; // Add fields as needed
     // Simple update builder for non-null fields
@@ -260,7 +255,7 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  app.delete('/api/schedules/:id', authenticateToken, async (req, res) => {
+  app.delete('/api/schedules/:id', authenticateAdmin, async (req, res) => {
     await db.run('DELETE FROM schedules WHERE id = ?', [req.params.id]);
     res.json({ success: true });
   });

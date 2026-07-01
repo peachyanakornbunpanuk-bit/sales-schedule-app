@@ -6,7 +6,6 @@ import { useToast } from '../context/ToastContext';
 
 const Login = () => {
   const { fetchData } = useApiData();
-  const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -23,10 +22,8 @@ const Login = () => {
 
     try {
       const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
-      const endpoint = isRegistering ? `${API_BASE}/auth/register` : `${API_BASE}/auth/login`;
-      const body = isRegistering 
-        ? JSON.stringify({ email, password, name, role })
-        : JSON.stringify({ email, password });
+      const endpoint = `${API_BASE}/auth/login`;
+      const body = JSON.stringify({ email, password });
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -73,7 +70,7 @@ const Login = () => {
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary-color)' }}>ScheduleMaster</h1>
           <p style={{ color: 'var(--text-muted)', margin: '0.5rem 0 0' }}>
-            {isRegistering ? 'Create a secure account.' : 'Welcome back! Please login.'}
+            Welcome back! Please login.
           </p>
         </div>
 
@@ -84,20 +81,6 @@ const Login = () => {
         )}
 
         <form onSubmit={handleSubmit}>
-          {isRegistering && (
-            <div className="form-group">
-              <label className="form-label">Full Name</label>
-              <input 
-                type="text" 
-                className="input-field" 
-                placeholder="e.g. Alice Smith" 
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required 
-              />
-            </div>
-          )}
-
           <div className="form-group">
             <label className="form-label">Email</label>
             <input 
@@ -145,41 +128,16 @@ const Login = () => {
             </div>
           </div>
 
-          {isRegistering && (
-            <div className="form-group">
-              <label className="form-label">Select Role</label>
-              <select 
-                className="input-field" 
-                value={role} 
-                onChange={(e) => setRole(e.target.value as UserRole)}
-              >
-                <option value="admin">Admin (Manager)</option>
-                <option value="sales">Sales (Employee)</option>
-              </select>
-            </div>
-          )}
-
           <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} disabled={loading}>
             {loading ? (
               <>
                 <Loader2 size={18} className="animate-spin" /> Processing...
               </>
             ) : (
-              isRegistering ? 'Create Account' : 'Sign In'
+              'Sign In'
             )}
           </button>
         </form>
-        
-        <div style={{ marginTop: '1.5rem', fontSize: '0.9rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-          {isRegistering ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <button 
-            type="button" 
-            style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontWeight: 600, cursor: 'pointer', padding: 0 }}
-            onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
-          >
-            {isRegistering ? 'Sign In' : 'Sign Up'}
-          </button>
-        </div>
       </div>
     </div>
   );
